@@ -2,6 +2,7 @@
 # TODO transpose coordinates
 
 
+# TODO  posprzątać i rozdzielić kod z main.py
 # TODO  sprawdzić brzeg gamma c
 # TODO  zrobić dwa brzegi rozdzielone
 # TODO  optymalizacja
