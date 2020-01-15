@@ -92,7 +92,7 @@ class Solver:
             self.DisplacedPoints[i] = self.mesh.point.coordinates[i]
 
     def norm(self, v):
-        return sqrt(v[0] * v[0] + v[1] * v[1])
+        return np.sqrt(v[0] * v[0] + v[1] * v[1])
 
     def length(self, p1, p2):
         return float(sqrt((p1[0] - p2[0]) * (p1[0] - p2[0]) + (p1[1] - p2[1]) * (p1[1] - p2[1])))
@@ -128,7 +128,29 @@ class Solver:
 
     def Jwu(self):
         J = float(0.)
-        return J
+
+        for border in mesh.subarea['border'][CONTACT]:
+            for edgeId in border:
+                p1Id = mesh.edge.points[edgeId][0]
+                p2Id = mesh.edge.points[edgeId][1]
+
+                umL = np.zeros(2)  # u at mL
+                if not mesh.point.dirichlet[p1Id]:
+                    umL += self.u[p1Id] * 0.5
+                if not mesh.point.dirichlet[p2Id]:
+                    umL += self.u[p2Id] * 0.5
+
+                x1, y1 = mesh.point[p1Id][0], mesh.point[p1Id][1]
+                x2, y2 = mesh.point[p2Id][0], mesh.point[p2Id][1]
+                edgeLength = np.sqrt((x1 - x2) ** 2 + (y1 - y2) ** 2)
+
+                nmL = np.array([0, -1])
+
+                uNmL = umL[0] * nmL[0] + umL[1] * nmL[1]
+                uTmL = umL - uNmL * nmL
+
+                J += edgeLength * 0.5 * (self.jN(uNmL) + self.h * self.jT(uTmL))  ###########
+
         '''
         for i in range (0,self.s.indNumber()):
             for e in range (-self.s.BorderEdgesD-self.s.BorderEdgesN -self.s.BorderEdgesC, -self.s.BorderEdgesD-self.s.BorderEdgesN):
@@ -158,6 +180,7 @@ class Solver:
 
         return J
         '''
+        return J
 
     '''
     def setWVector(self, wVector):
@@ -195,7 +218,7 @@ class Solver:
 
     ########################################################
 
-    knu = 10.
+    knu = 1000.
     delta = 0.1
 
     def jN(self, uN):  # uN - scalar
@@ -206,15 +229,12 @@ class Solver:
         # return self.knu * self.delta * (uN - 0.5 * self.delta)
         return 0.5 * self.knu * self.delta * self.delta
 
-    def h(self, uN):
-        if (uN <= 0):
-            return 0
-        return 8. * uN
-        # return 16.*uN
+    h = 0.
+
 
     def jT(self, uT):  # uT - vector
         # return self.norm(uT)
-        return log(self.norm(uT) + 1)
+        return np.log(self.norm(uT) + 1)
 
 ########################################################
 
@@ -270,8 +290,6 @@ class F:
                 self.F[c] += (efield / 6.) * (
                             self.f0([(xc + xa) * 0.5, (yc + ya) * 0.5]) + self.f0([(xc + xb) * 0.5, (yc + yb) * 0.5]))
 
-        print("self.F Z 0")
-        print(self.F)
 
         for border in mesh.subarea['border'][NEUMANN]:
             for edgeId in border:
@@ -292,8 +310,8 @@ class F:
 
 # ---------------------------------------------
 ########################################################
-F0 = np.array([0.5, 0.4])  # np.array([-1.2,-1.]) -0.9
-FN = np.array([-0.3, 0.])
+F0 = np.array([-2., -1.])  # np.array([-1.2,-1.]) -0.9
+FN = np.array([0., 0.])
 mi = 4
 la = 4
 ########################################################
@@ -313,7 +331,6 @@ while True:
     uVector = minimize(solver.L2, uVector, method='Powell' \
                        , options={'disp': True, 'xtol': 0.000000001,
                                   'ftol': 0.00000001}).x  # 'xtol': 0.000000001, 'ftol': 0.00000001 #'Powell' 'BFGS' 'neldermead'
-    print(uVector)
     # print(".", end=" ")
     # print("FIXED DIFF NORM: " + str(np.linalg.norm(np.subtract(uVector,wVector))))
     # if (np.linalg.norm(np.subtract(uVector,wVector)) < 0.00001): #0.00001
